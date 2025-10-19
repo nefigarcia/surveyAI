@@ -51,10 +51,10 @@ def analyze_feedback_message(message):
 
 
 # ✅ Correct Vercel entry point
-   def handler(request):
+   def handler(request, context):
     return {
         "statusCode": 200,
         "headers": {"Content-Type": "application/json"},
-        "body": json.dumps({"ok": True})
+        "body": '{"message": "API is working!"}'
     }
 
