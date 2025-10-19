@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/*.py": {
+      "runtime": "@vercel/python@latest"
+    }
+  },
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/$1.py" }
+  ]
+}
