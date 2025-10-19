@@ -1,7 +1,7 @@
 {
   "functions": {
     "api/analyze_feedback.py": {
-      "runtime": "@vercel/python@3.11.9"
+      "runtime": "@vercel/python@3.1.0"
     }
   }
 }
