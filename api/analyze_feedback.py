@@ -51,13 +51,54 @@ def analyze_feedback_message(message):
 
 
 # ✅ Correct Vercel entry point
-print("Function loaded!")  # This will show in build logs
-
 def handler(request):
-    print("Handler triggered")  # This will show in runtime logs
-    return {
-        "statusCode": 200,
-        "body": "Hello"
-    }
+    print("Request received for analyze_feedback")
+    try:
+        if request.method != "POST":
+            return {
+                "statusCode": 405,
+                "body": "Method Not Allowed"
+            }
 
+        body = request.json()
+        message = body.get("message", "").strip()
 
+        if not message:
+            return {
+                "statusCode": 400,
+                "headers": {"Content-Type": "application/json"},
+                "body": json.dumps({"error": "Missing 'message' field"})
+            }
+
+        analysis = analyze_feedback_message(message)
+
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                INSERT INTO analyzed_feedback (message, doctor_score, nurse_score, hospital_score, notes_analysis)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (
+                message,
+                analysis.get("doctor", 5),
+                analysis.get("nurse", 5),
+                analysis.get("hospital", 5),
+                analysis.get("notes", "")
+            ))
+            conn.commit()
+        conn.close()
+
+        return {
+            "statusCode": 200,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({
+                "status": "success",
+                "data": analysis
+            })
+        }
+
+    except Exception as e:
+        return {
+            "statusCode": 500,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({"error": str(e)})
+        }
