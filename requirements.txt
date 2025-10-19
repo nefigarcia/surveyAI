@@ -1,3 +1,4 @@
-openai
+﻿openai
 python-dotenv
 pymysql
+

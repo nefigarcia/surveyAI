@@ -2,22 +2,21 @@ import os
 import json
 import openai
 import pymysql
-from dotenv import load_dotenv
-from flask import Request, Response
 
-# Load .env locally
-load_dotenv()
+# For local development
+if os.getenv("VERCEL") is None:
+    from dotenv import load_dotenv
+    load_dotenv()
 
-# OpenAI Key
+# OpenAI API Key
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# MySQL connection params
+# DB credentials
 DB_HOST = os.getenv("DB_HOST")
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_NAME = os.getenv("DB_NAME")
 
-# Connect to MySQL
 def get_db_connection():
     return pymysql.connect(
         host=DB_HOST,
@@ -28,7 +27,6 @@ def get_db_connection():
         cursorclass=pymysql.cursors.DictCursor
     )
 
-# Analyze feedback using OpenAI
 def analyze_feedback_message(message):
     prompt = (
         "You are a helpful assistant analyzing patient feedback. "
@@ -49,17 +47,24 @@ def analyze_feedback_message(message):
 
     return json.loads(response.choices[0].message.content.strip())
 
-# Main handler
-def handler(request: Request) -> Response:
+# ✅ Vercel entry point
+def handler(request):
     try:
-        if request.method != 'POST':
-            return Response("Method Not Allowed", status=405)
+        if request.method != "POST":
+            return {
+                "statusCode": 405,
+                "body": "Method Not Allowed"
+            }
 
-        data = request.get_json()
-        message = data.get("message", "").strip()
+        body = request.get_json()
+        message = body.get("message", "").strip()
 
         if not message:
-            return Response(json.dumps({"error": "Missing 'message' field"}), status=400, mimetype='application/json')
+            return {
+                "statusCode": 400,
+                "headers": {"Content-Type": "application/json"},
+                "body": json.dumps({"error": "Missing 'message' field"})
+            }
 
         analysis = analyze_feedback_message(message)
 
@@ -68,27 +73,32 @@ def handler(request: Request) -> Response:
         hospital_score = analysis.get("hospital", 5)
         notes = analysis.get("notes", "")
 
-        # Insert into MySQL
         conn = get_db_connection()
         with conn.cursor() as cursor:
-            sql = """
+            cursor.execute("""
                 INSERT INTO analyzed_feedback (message, doctor_score, nurse_score, hospital_score, notes_analysis)
                 VALUES (%s, %s, %s, %s, %s)
-            """
-            cursor.execute(sql, (message, doctor_score, nurse_score, hospital_score, notes))
+            """, (message, doctor_score, nurse_score, hospital_score, notes))
             conn.commit()
-
         conn.close()
 
-        return Response(json.dumps({
-            "status": "success",
-            "data": {
-                "doctor": doctor_score,
-                "nurse": nurse_score,
-                "hospital": hospital_score,
-                "notes": notes
-            }
-        }), status=200, mimetype='application/json')
+        return {
+            "statusCode": 200,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({
+                "status": "success",
+                "data": {
+                    "doctor": doctor_score,
+                    "nurse": nurse_score,
+                    "hospital": hospital_score,
+                    "notes": notes
+                }
+            })
+        }
 
     except Exception as e:
-        return Response(json.dumps({"error": str(e)}), status=500, mimetype='application/json')
+        return {
+            "statusCode": 500,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({"error": str(e)})
+        }
