@@ -1,21 +1,22 @@
 import os
 import json
-import openai
 import pymysql
+from openai import OpenAI
 
-# For local development
+# Load .env locally
 if os.getenv("VERCEL") is None:
     from dotenv import load_dotenv
     load_dotenv()
 
-# OpenAI API Key
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# Initialize OpenAI client
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # DB credentials
 DB_HOST = os.getenv("DB_HOST")
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_NAME = os.getenv("DB_NAME")
+
 
 def get_db_connection():
     return pymysql.connect(
@@ -27,6 +28,7 @@ def get_db_connection():
         cursorclass=pymysql.cursors.DictCursor
     )
 
+
 def analyze_feedback_message(message):
     prompt = (
         "You are a helpful assistant analyzing patient feedback. "
@@ -36,8 +38,8 @@ def analyze_feedback_message(message):
         "{ \"doctor\": 8, \"nurse\": 5, \"hospital\": 9, \"notes\": \"...\" }"
     )
 
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
+    completion = client.chat.completions.create(
+        model="gpt-4o-mini",
         temperature=0,
         messages=[
             {"role": "system", "content": prompt},
@@ -45,9 +47,10 @@ def analyze_feedback_message(message):
         ]
     )
 
-    return json.loads(response.choices[0].message.content.strip())
+    return json.loads(completion.choices[0].message.content.strip())
 
-# ✅ Vercel entry point
+
+# ✅ Correct Vercel entry point
 def handler(request):
     try:
         if request.method != "POST":
@@ -56,7 +59,7 @@ def handler(request):
                 "body": "Method Not Allowed"
             }
 
-        body = request.get_json()
+        body = request.json()
         message = body.get("message", "").strip()
 
         if not message:
@@ -68,17 +71,18 @@ def handler(request):
 
         analysis = analyze_feedback_message(message)
 
-        doctor_score = analysis.get("doctor", 5)
-        nurse_score = analysis.get("nurse", 5)
-        hospital_score = analysis.get("hospital", 5)
-        notes = analysis.get("notes", "")
-
         conn = get_db_connection()
         with conn.cursor() as cursor:
             cursor.execute("""
                 INSERT INTO analyzed_feedback (message, doctor_score, nurse_score, hospital_score, notes_analysis)
                 VALUES (%s, %s, %s, %s, %s)
-            """, (message, doctor_score, nurse_score, hospital_score, notes))
+            """, (
+                message,
+                analysis.get("doctor", 5),
+                analysis.get("nurse", 5),
+                analysis.get("hospital", 5),
+                analysis.get("notes", "")
+            ))
             conn.commit()
         conn.close()
 
@@ -87,12 +91,7 @@ def handler(request):
             "headers": {"Content-Type": "application/json"},
             "body": json.dumps({
                 "status": "success",
-                "data": {
-                    "doctor": doctor_score,
-                    "nurse": nurse_score,
-                    "hospital": hospital_score,
-                    "notes": notes
-                }
+                "data": analysis
             })
         }
 
