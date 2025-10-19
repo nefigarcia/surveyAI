@@ -51,7 +51,7 @@ def analyze_feedback_message(message):
 
 print("API analyze_feedback.py loaded.")
 # ✅ Correct Vercel entry point
-def handler(request):
+def handler(event, context):
     print("analyze_feedback handler invoked.")
     try:
         if request.method != "POST":
