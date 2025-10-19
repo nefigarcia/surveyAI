@@ -51,7 +51,6 @@ def analyze_feedback_message(message):
 
 
 # ✅ Correct Vercel entry point
-def handler(request):
    def handler(request):
     return {
         "statusCode": 200,
