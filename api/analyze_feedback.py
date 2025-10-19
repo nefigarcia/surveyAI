@@ -51,7 +51,7 @@ def analyze_feedback_message(message):
 
 
 # ✅ Correct Vercel entry point
-   print("Function loaded!")  # This will show in build logs
+print("Function loaded!")  # This will show in build logs
 
 def handler(request):
     print("Handler triggered")  # This will show in runtime logs
