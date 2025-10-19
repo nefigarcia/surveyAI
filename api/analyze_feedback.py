@@ -51,10 +51,13 @@ def analyze_feedback_message(message):
 
 
 # ✅ Correct Vercel entry point
-   def handler(request, context):
+   print("Function loaded!")  # This will show in build logs
+
+def handler(request):
+    print("Handler triggered")  # This will show in runtime logs
     return {
         "statusCode": 200,
-        "headers": {"Content-Type": "application/json"},
-        "body": '{"message": "API is working!"}'
+        "body": "Hello"
     }
+
 
